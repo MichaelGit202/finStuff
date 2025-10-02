@@ -65,7 +65,10 @@ class requestObj:
     header: dict
 
 
-
+#bad query
+#https://query1.finance.yahoo.com/v7/finance/quote?&symbols=TMC,TRU,TSLA,TSMC34.SA,USAR,^DJI,^GSPC,^IXIC,^RUT,^SPX,^TNX,^VIX&fields=currency,fromCurrency,toCurrency,exchangeTimezoneName,exchangeTimezoneShortName,gmtOffSetMilliseconds,regularMarketChange,regularMarketChangePercent,regularMarketPrice,regularMarketTime,preMarketChange,preMarketChangePercent,preMarketPrice,preMarketTime,priceHint,postMarketChange,postMarketChangePercent,postMarketPrice,postMarketTime,extendedMarketChange,extendedMarketChangePercent,extendedMarketPrice,extendedMarketTime,overnightMarketChange,overnightMarketChangePercent,overnightMarketPrice,overnightMarketTime&crumb=68UqqEeOU6K&formatted=false&region=US&lang=en-US
+# good query
+#https://query1.finance.yahoo.com/v7/finance/spark?symbols=FICO%2CSRPT%2CRGTI%2CUSAR%2CTRU%2CRIVN%2CEFX%2COXY%2CARX%2COPEN%2CPLUG%2CQBTS&range=1d&interval=5m&indicators=close&includeTimestamps=false&includePrePost=false&corsDomain=finance.yahoo.com&.tsrc=finance
 
 async def fetch(session, req):
     try:
@@ -76,7 +79,18 @@ async def fetch(session, req):
     except Exception as e:
         return {"ticker": req.ticker, "error": str(e), "url": req.url}
 
-    
+async def batchFetch(session, reqs):
+    tasks = [fetch(session, req) for req in reqs]
+    return await asyncio.gather(*tasks)
+
+
+# Semaphore to limit concurrency
+#sem = asyncio.Semaphore(session, maxConcurrent)
+
+#async def safe_fetch(req):
+#    async with sem:
+#        return await fetch(session, req)
+#
 
 async def tickerStream(tickers, timeOffset=260, interval="1m", batchSize=20):
     epocStart = int(time.time()) - timeOffset
