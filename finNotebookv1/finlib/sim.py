@@ -1,7 +1,7 @@
 import json
 
 try:
-    import simdjson
+    import pysimdjson as simdjson
     _HAS_SIMDJSON = True
     # prefer simdjson.loads if available, otherwise create a Parser
     _SIMD_LOADS = getattr(simdjson, 'loads', None)
@@ -12,18 +12,34 @@ except Exception:
     _SIMD_PARSER = None
 
 
-class sim:
+
+#general json data structure
+#time series data [
+    # typical OHLCV data + time stamp
+#]
+
+# the part of me that is thinking too fat ahead thinks:
+# #TODO support parralell / non-linear data streams, ie a sequential time series data + news data
+    # - news data is slower than market data
+
+# im just gona focus on the pure OHLCV data for now
+
+
+
+class simulator:
 
     # init that assumes the data is in one file
-    def __init__(self, file_path: str, start_step: int = 0, chunk_size: int = 1000):
+    def __init__(self, file_path: str, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0):
         self.file_path = str(file_path)
         self.current_step = start_step
         self.data = None
         self.chunkSize = int(chunk_size)
-
+        self.cash = initial_money
+        self.equity = 0.0 # invested money
         self._fh = None
         self._mode = None  # 'ndjson' or 'array'
         self._eof = False
+        self._eoc = True
 
     def __del__(self):
         try:
@@ -91,6 +107,7 @@ class sim:
                 return json.loads(s)
         else:
             return json.loads(s)
+
 
     def _read_next_array_item(self):
         fh = self._fh
@@ -194,19 +211,41 @@ class sim:
         self.data = items
         return items
 
+    def buy(amount: float):
+        cash = self.cash
+        if amount > cash:
+            raise ValueError("Insufficient cash to buy")
+        elif amount <= 0:
+            raise ValueError("Buy amount must be positive")
+        else:
+            self.cash -= amount
+            self.equity += amount
+
+    def sell(amount: float):
+        if amount > self.equity:
+            raise ValueError("Insufficient equity to sell")
+        elif amount <= 0:
+            raise ValueError("Sell amount must be positive")
+        else:
+            self.equity -= amount
+            self.cash += amount
 
     def step(self):
-        return self.current_step
+
+        if self._eoc:
+            print("end of chunk")
+            self.data = self.load_chunk()
+            print()
+            self._eoc = False
+
+        if self._eof:
+            return []
 
 
+        if len(self.data) >= self.current_step + 1:
+            self.eoc = True
 
+        self.current_step += 1
 
-
-
-
-class strategy_sim():
-    def __init__(self):
-        pass
-
-
-
+        return  self.data[self.current_step % self.chunkSize : (self.current_step % self.chunkSize) + 1]
+    
