@@ -36,6 +36,7 @@ class simulator:
         self.chunkSize = int(chunk_size)
         self.cash = initial_money
         self.equity = 0.0 # invested money
+        self._chunk_pos = 0
         self._fh = None
         self._mode = None  # 'ndjson' or 'array'
         self._eof = False
@@ -206,12 +207,15 @@ class simulator:
                 if it is None:
                     break
                 items.append(it)
-
-        self.current_step += len(items)
-        self.data = items
+            # do not advance `current_step` here; it should reflect how many items
+            # have been yielded by `step()` (global position). Reset chunk position.
+            self._chunk_pos = 0
+            self.data = items
         return items
 
-    def buy(amount: float):
+
+
+    def buy(self, amount: float):
         cash = self.cash
         if amount > cash:
             raise ValueError("Insufficient cash to buy")
@@ -221,7 +225,7 @@ class simulator:
             self.cash -= amount
             self.equity += amount
 
-    def sell(amount: float):
+    def sell(self, amount: float):
         if amount > self.equity:
             raise ValueError("Insufficient equity to sell")
         elif amount <= 0:
@@ -231,21 +235,24 @@ class simulator:
             self.cash += amount
 
     def step(self):
-
-        if self._eoc:
-            print("end of chunk")
-            self.data = self.load_chunk()
-            print()
-            self._eoc = False
-
-        if self._eof:
+        # Return the next item (as a single-element list for compatibility)
+        # Load a new chunk when current chunk is exhausted.
+        if self._eof and (not self.data or self._chunk_pos >= len(self.data)):
             return []
 
+        if not self.data or self._chunk_pos >= len(self.data):
+            items = self.load_chunk()
+            if not items:
+                return []
 
-        if len(self.data) >= self.current_step + 1:
-            self.eoc = True
-
+        # return next record
+        item = self.data[self._chunk_pos]
+        self._chunk_pos += 1
         self.current_step += 1
 
-        return  self.data[self.current_step % self.chunkSize : (self.current_step % self.chunkSize) + 1]
+        # if this chunk is now exhausted, mark end-of-chunk for caller
+        if self._chunk_pos >= len(self.data):
+            self._eoc = True
+
+        return [item]
     
