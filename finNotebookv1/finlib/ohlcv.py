@@ -22,19 +22,30 @@ class ohlcv_collection:
 
 
 class ohlcv:
-    def __init__(self, data: dict):
+
+    def __init__(self, data: dict = None):
+        self.timestamp = None
+        self.open = None
+        self.high = None
+        self.low = None
+        self.close = None
+        self.volume = None
+
+        if data is None:
+            return
+
         if type(data) is not dict:
             raise TypeError("data must be a dict")
-        
+
         try:
             assert all(key in data for key in ["open", "high", "low", "close", "volume"])
             assert any(key in data for key in ["timestamp", "time"])
         except AssertionError:
             raise KeyError("data dict must contain keys: open, high, low, close, volume")
-        
+
         if ("timestamp" in data) and ("time" in data):
             raise KeyError("data dict cannot contain both 'timestamp' and 'time' keys")
-        
+
         if ("timestamp" in data):
             self.timestamp = data["timestamp"]
         else:

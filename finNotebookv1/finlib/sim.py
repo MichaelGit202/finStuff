@@ -1,4 +1,5 @@
 import json
+import finlib.ohlcv as ohlcv
 
 try:
     import pysimdjson as simdjson
@@ -26,7 +27,7 @@ except Exception:
 
 
 
-class simulator:
+class stock_simulator:
 
     # init that assumes the data is in one file
     def __init__(self, file_path: str, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0):
@@ -35,12 +36,13 @@ class simulator:
         self.data = None
         self.chunkSize = int(chunk_size)
         self.cash = initial_money
-        self.equity = 0.0 # invested money
+        self.shares = 0.0 # invested money in terms of shares
         self._chunk_pos = 0
         self._fh = None
         self._mode = None  # 'ndjson' or 'array'
         self._eof = False
         self._eoc = True
+        self.current_ohlcv = ohlcv.ohlcv()   #The current OHLCV datapoint 
 
     def __del__(self):
         try:
@@ -213,7 +215,15 @@ class simulator:
             self.data = items
         return items
 
+    #buy and sell all lol
+    def buy_all(self):
+        self.shares += self.cash/self.current_ohlcv.close  # convert cash to shares at current price
+        self.cash = 0
 
+    def sell_all(self):
+        self.cash += self.shares * self.current_ohlcv.close  # convert shares to cash at current price
+        self.shares = 0
+    ######
 
     def buy(self, amount: float):
         cash = self.cash
@@ -223,30 +233,56 @@ class simulator:
             raise ValueError("Buy amount must be positive")
         else:
             self.cash -= amount
-            self.equity += amount
+            self.shares += amount/self.current_ohlcv.close  # convert cash to shares at current price
 
-    def sell(self, amount: float):
-        if amount > self.equity:
+    def sell_shares(self, amount: float):
+        if amount > self.shares:
+            raise ValueError("Insufficient shares to sell")
+        elif amount <= 0:
+            raise ValueError("Sell amount must be positive")
+        else:
+            self.shares -= amount
+            self.cash += amount * self.current_ohlcv.close  # convert shares to cash at current price
+
+
+    def sell_equity(self, amount: float):
+        if amount > self.shares * self.current_ohlcv.close:
             raise ValueError("Insufficient equity to sell")
         elif amount <= 0:
             raise ValueError("Sell amount must be positive")
         else:
-            self.equity -= amount
-            self.cash += amount
+            self.shares -= (amount / self.current_ohlcv.close)
+            self.cash += amount 
+    
 
-    def step(self):
+    def get_equity(self) -> float: 
+        return self.shares * self.current_ohlcv.close
+    
+    def get_shares(self) -> float:  
+        return self.shares
+    
+    def get_cash(self) -> float:    
+        return self.cash
+    
+    def get_portfolio_value(self) -> float:
+        return {"cash": self.get_cash(), "equity": self.get_equity()}
+
+    def step(self) -> ohlcv.ohlcv : 
         # Return the next item (as a single-element list for compatibility)
         # Load a new chunk when current chunk is exhausted.
+
+        self._calculate_equity_growth()
+
         if self._eof and (not self.data or self._chunk_pos >= len(self.data)):
-            return []
+            return None
 
         if not self.data or self._chunk_pos >= len(self.data):
             items = self.load_chunk()
             if not items:
-                return []
+                return None
 
         # return next record
-        item = self.data[self._chunk_pos]
+        self.current_ohlcv = ohlcv.ohlcv(self.data[self._chunk_pos])
         self._chunk_pos += 1
         self.current_step += 1
 
@@ -254,5 +290,7 @@ class simulator:
         if self._chunk_pos >= len(self.data):
             self._eoc = True
 
-        return [item]
+        return self.current_ohlcv
     
+    def _calculate_equity_growth(self):
+        pass
