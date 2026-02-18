@@ -1,7 +1,14 @@
+### Object to hold all tickers apart of a dataset
+
+
 class stock_market:
-    def __init__(self, ohlcv_data_dir: str):
-        self.ohlcv_data_dir = ohlcv_data_dir
+    def __init__(self, ohlcv_list: list, initial_cash: float = 10000):
+        self.ohlcv_list = ohlcv_list
+        self.current_index = 0
+        self._eof = False
+        self.current_ohlcv = None
         
+
 
     def step(self):
         if self._eof:
