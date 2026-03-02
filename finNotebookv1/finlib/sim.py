@@ -1,6 +1,6 @@
 import json
 import finlib.ohlcv as ohlcv
-
+from enum import Enum
 try:
     import pysimdjson as simdjson
     _HAS_SIMDJSON = True
@@ -25,9 +25,17 @@ except Exception:
 
 # im just gona focus on the pure OHLCV data for now
 
+class Action(Enum):
+    BUY = 0
+    SELL = 1
+    BUY_ALL = 2
+    SELL_ALL = 3
+    ADD_CASH = 4
+    REMOVE_CASH = 5
 
 
 class stock_simulator:
+
 
     # init that assumes the data is in one file
     def __init__(self, file_path: str, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0):
@@ -36,6 +44,8 @@ class stock_simulator:
         self.data = None
         self.chunkSize = int(chunk_size)
         self.cash = initial_money
+        self.agregate_added_cash = initial_money
+
         self.shares = 0.0 # invested money in terms of shares
         self._chunk_pos = 0
         self._fh = None
@@ -43,6 +53,13 @@ class stock_simulator:
         self._eof = False
         self._eoc = True
         self.current_ohlcv = ohlcv.ohlcv()   #The current OHLCV datapoint 
+
+        self.order_history = []  # list of actions taken, e.g. {"step": 10, "action": "buy", "amount": 100.0}
+        self.active_orders = []
+        
+
+        self.equity_growth = 0.0 # this is the equity growth of this single stock, this is to track growth over time
+                           # even if the user pulled it all out then put it back in. 
 
     def __del__(self):
         try:
@@ -215,15 +232,47 @@ class stock_simulator:
             self.data = items
         return items
 
+    def add_cash(self, amount: float):
+        if amount <= 0:
+            raise ValueError("Added cash amount must be positive")
+        self.cash += amount
+        self.agregate_added_cash += amount
+        action = {"step": self.current_step, "action": Action.ADD_CASH, "amount": amount, "price": self.current_ohlcv.close, "shares": 0}
+        self.order_history.append(action)
+
+    def remove_cash(self, amount: float) -> float:
+        if amount <= 0:
+            raise ValueError("Removed cash amount must be positive")
+        if amount > self.cash:
+            raise ValueError("Insufficient cash to remove")
+        self.cash -= amount
+        self.agregate_added_cash -= amount
+        action = {"step": self.current_step, "action": Action.REMOVE_CASH, "amount": amount, "price": self.current_ohlcv.close, "shares": 0}
+        self.order_history.append(action)   
+        return amount
+
     #buy and sell all lol
     def buy_all(self):
         self.shares += self.cash/self.current_ohlcv.close  # convert cash to shares at current price
         self.cash = 0
 
+        action = {"step": self.current_step, "action": Action.BUY_ALL, "amount": self.cash, "price": self.current_ohlcv.close, "shares": self.shares}
+        self.order_history.append(action)
+        self.active_orders.append(action)
+
     def sell_all(self):
-        self.cash += self.shares * self.current_ohlcv.close  # convert shares to cash at current price
+        total_sold = 0 
+
+        for order in self.active_orders:
+            total_sold += self.current_ohlcv.close * order["shares"]
+        self.active_orders = []
+        
         self.shares = 0
-    ######
+        action = {"step": self.current_step, "action": Action.SELL_ALL, "amount": total_sold, "price": self.current_ohlcv.close, "shares": self.shares}
+        self.cash += total_sold
+        self.order_history.append(action)
+   
+    
 
     def buy(self, amount: float):
         cash = self.cash
@@ -235,6 +284,11 @@ class stock_simulator:
             self.cash -= amount
             self.shares += amount/self.current_ohlcv.close  # convert cash to shares at current price
 
+            action = {"step": self.current_step, "action": Action.BUY, "amount": amount, "price": self.current_ohlcv.close, "shares": amount/self.current_ohlcv.close}
+            self.order_history.append(action)
+            self.active_orders.append(action)
+           
+
     def sell_shares(self, amount: float):
         if amount > self.shares:
             raise ValueError("Insufficient shares to sell")
@@ -243,7 +297,9 @@ class stock_simulator:
         else:
             self.shares -= amount
             self.cash += amount * self.current_ohlcv.close  # convert shares to cash at current price
-
+            action = {"step": self.current_step, "action": Action.SELL, "amount": amount * self.current_ohlcv.close, "price": self.current_ohlcv.close, "shares": amount}
+            self.order_history.append(action)
+            
 
     def sell_equity(self, amount: float):
         if amount > self.shares * self.current_ohlcv.close:
@@ -253,7 +309,41 @@ class stock_simulator:
         else:
             self.shares -= (amount / self.current_ohlcv.close)
             self.cash += amount 
+            action = {"step": self.current_step, "action": Action.SELL, "amount": amount, "price": self.current_ohlcv.close, "shares": amount / self.current_ohlcv.close}
+            self.order_history.append(action)
+            
     
+    #ammount in terms of cash
+    def _sell_shares_from_active_orders(self, amount: float):
+        total_sold = 0.0
+        shares_to_sell = amount / self.current_ohlcv.close
+
+        if shares_to_sell > self.shares:
+            raise ValueError("Insufficient shares to sell")
+
+        for order in self.active_orders:
+            if shares_to_sell <= 0:
+                break
+            if order["shares"] <= shares_to_sell:
+                total_sold += order["shares"] * self.current_ohlcv.close
+                shares_to_sell -= order["shares"]
+                self.active_orders.remove(order)
+            else:
+                total_sold += shares_to_sell * self.current_ohlcv.close
+                order["shares"] -= shares_to_sell
+                shares_to_sell = 0
+
+        self.shares -= shares_to_sell
+        self.cash += total_sold
+
+
+
+    #Idk if this is wrong, but total gains is equal to the difference
+    # between the sum of the sell prices and the sum of the buy prices, assuming we are always buying and selling the same amount of shares.
+    #def get_returns(self) -> float:
+    #    if self.buyPrices == []:
+    #        return 0.0
+    #    total_invested = sum(self.sellPrices - self.buyPrices)
 
     def get_equity(self) -> float: 
         return self.shares * self.current_ohlcv.close
@@ -291,6 +381,22 @@ class stock_simulator:
             self._eoc = True
 
         return self.current_ohlcv
-    
+
+    #TODO: calling this every step is slow
     def _calculate_equity_growth(self):
-        pass
+        self.equity_growth = 0.0
+
+        for order in self.active_orders:
+            self.equity_growth += (self.current_ohlcv.close - order["price"]) * order["shares"]
+
+    def get_returns(self) -> float:
+        return self.get_equity() + self.get_cash() - self.agregate_added_cash
+    
+    def get_returns_percentage(self) -> float:
+        if self.agregate_added_cash == 0:
+            return 0.0
+        return (self.get_returns() / self.agregate_added_cash) * 100
+    
+    def get_raw_cash_investment(self) -> float:
+        return self.agregate_added_cash
+    

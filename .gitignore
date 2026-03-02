@@ -1,0 +1,5 @@
+# Ignore any data folder anywhere
+**/data/
+
+# Ignore Windows metadata files
+*.Identifier
