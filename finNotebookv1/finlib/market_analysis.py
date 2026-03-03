@@ -24,6 +24,7 @@ def calc_log_returns(returns, base='e'):
     else:
         raise ValueError("Base must be 'e' or '10'.")
 
+
 def drawdown(returns):
     """Calculate the drawdown from a series of returns."""
     cumulative_returns = (1 + returns).cumprod()

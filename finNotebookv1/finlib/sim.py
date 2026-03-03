@@ -1,18 +1,7 @@
-import json
+import finlib.data_stream as data_stream
 import finlib.ohlcv as ohlcv
 from enum import Enum
-try:
-    import pysimdjson as simdjson
-    _HAS_SIMDJSON = True
-    # prefer simdjson.loads if available, otherwise create a Parser
-    _SIMD_LOADS = getattr(simdjson, 'loads', None)
-    _SIMD_PARSER = None if _SIMD_LOADS else simdjson.Parser()
-except Exception:
-    _HAS_SIMDJSON = False
-    _SIMD_LOADS = None
-    _SIMD_PARSER = None
-
-
+import pandas as pd
 
 #general json data structure
 #time series data [
@@ -21,9 +10,11 @@ except Exception:
 
 # the part of me that is thinking too fat ahead thinks:
 # #TODO support parralell / non-linear data streams, ie a sequential time series data + news data
-    # - news data is slower than market data
+    # - news data is slower than market data'
+ # TODO implement async data streams for reading to pre-load chunk data for speed
 
-# im just gona focus on the pure OHLCV data for now
+ # TODO refactor all the data stuff, everything should probably just turn into a pandas dataframe
+ # TODO calculate visuals
 
 class Action(Enum):
     BUY = 0
@@ -38,199 +29,129 @@ class stock_simulator:
 
 
     # init that assumes the data is in one file
-    def __init__(self, file_path: str, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0):
-        self.file_path = str(file_path)
+    def __init__(self, file_path: str, stream_type, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0 ):
         self.current_step = start_step
-        self.data = None
-        self.chunkSize = int(chunk_size)
         self.cash = initial_money
         self.agregate_added_cash = initial_money
-
-        self.shares = 0.0 # invested money in terms of shares
-        self._chunk_pos = 0
-        self._fh = None
-        self._mode = None  # 'ndjson' or 'array'
-        self._eof = False
-        self._eoc = True
-        self.current_ohlcv = ohlcv.ohlcv()   #The current OHLCV datapoint 
-
-        self.order_history = []  # list of actions taken, e.g. {"step": 10, "action": "buy", "amount": 100.0}
+        self.shares = 0.0
+        self.current_ohlcv = ohlcv.ohlcv()
+        self.order_history = []
         self.active_orders = []
-        
-
-        self.equity_growth = 0.0 # this is the equity growth of this single stock, this is to track growth over time
-                           # even if the user pulled it all out then put it back in. 
+        self.equity_growth = 0.0
+        self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size)
+        self._eof = False
+        self._current_chunk = []
+        self._chunk_pos = 0
+        self.stream_type = stream_type
 
     def __del__(self):
         try:
-            if self._fh:
-                self._fh.close()
+            del self.data_stream
         except Exception:
             pass
+    
+    #############################################################
+    #                      Utility functions                    #
+    #############################################################
 
-    def _open_if_needed(self):
-        if self._fh is not None:
-            return
-        self._fh = open(self.file_path, 'r', encoding='utf-8')
-        # detect format by peeking first non-whitespace char
-        while True:
-            c = self._fh.read(1)
-            if not c:
-                break
-            if not c.isspace():
-                if c == '[':
-                    self._mode = 'array'
-                elif c == '{':
-                    # top-level object; try to find the first array inside it and stream that
-                    # scan forward until we hit a '[' that is not inside a string
-                    in_string = False
-                    escape = False
-                    while True:
-                        d = self._fh.read(1)
-                        if not d:
-                            break
-                        if in_string:
-                            if escape:
-                                escape = False
-                            elif d == '\\':
-                                escape = True
-                            elif d == '"':
-                                in_string = False
-                            continue
-                        else:
-                            if d == '"':
-                                in_string = True
-                                continue
-                            if d == '[':
-                                self._mode = 'array'
-                                # file pointer is just after the '[' ready to read first element
-                                break
-                    # if we didn't find an array, treat as ndjson fallback
-                    if self._mode != 'array':
-                        self._mode = 'ndjson'
-                else:
-                    self._mode = 'ndjson'
-                break
-        # if we decided it's ndjson, rewind to start so reading lines works
-        if self._mode == 'ndjson':
-            self._fh.seek(0)
+    # Getting new data from whatever datasetream we are using
+    # TODO refactor
+    def _get_next_entry(self):
+            # If current chunk is exhausted, load a new chunk
 
-    def _parse_json(self, s: str):
-        if _HAS_SIMDJSON:
-            try:
-                if _SIMD_LOADS:
-                    return _SIMD_LOADS(s)
-                else:
-                    # Parser.parse accepts bytes or str depending on binding
-                    return _SIMD_PARSER.parse(s)
-            except Exception:
-                return json.loads(s)
+            if isinstance(self._current_chunk, pd.DataFrame):
+                chunk_len = self._current_chunk.shape[0]
+            else:
+                chunk_len = len(self._current_chunk)
+
+            if self._chunk_pos >= chunk_len:
+                self._current_chunk = self.data_stream.read_chunk()
+                self._chunk_pos = 0
+                # Check for empty chunk
+                if self._current_chunk is None:
+                    self._eof = True
+                    return None
+                if isinstance(self._current_chunk, pd.DataFrame):
+                    if self._current_chunk.empty:
+                        self._eof = True
+                        return None
+                elif hasattr(self._current_chunk, 'empty'):
+                    if self._current_chunk.empty:
+                        self._eof = True
+                        return None
+                elif isinstance(self._current_chunk, (list, dict)):
+                    if not self._current_chunk:
+                        self._eof = True
+                        return None
+
+            # Get next entry
+            if isinstance(self._current_chunk, pd.DataFrame):
+                entry = self._current_chunk.iloc[self._chunk_pos]
+            else:
+                entry = self._current_chunk[self._chunk_pos]
+            self._chunk_pos += 1
+            return entry
+     
+    
+    #ammount in terms of cash
+    def _sell_shares_from_active_orders(self, amount: float):
+        total_sold = 0.0
+        shares_to_sell = amount / self.current_ohlcv.close
+
+        if shares_to_sell > self.shares:
+            raise ValueError("Insufficient shares to sell")
+
+        for order in self.active_orders:
+            if shares_to_sell <= 0:
+                break
+            if order["shares"] <= shares_to_sell:
+                total_sold += order["shares"] * self.current_ohlcv.close
+                shares_to_sell -= order["shares"]
+                self.active_orders.remove(order)
+            else:
+                total_sold += shares_to_sell * self.current_ohlcv.close
+                order["shares"] -= shares_to_sell
+                shares_to_sell = 0
+
+        self.shares -= shares_to_sell
+        self.cash += total_sold
+
+    #TODO: calling this every step is slow
+    def _calculate_equity_growth(self):
+        self.equity_growth = 0.0
+
+        for order in self.active_orders:
+            self.equity_growth += (self.current_ohlcv.close - order["price"]) * order["shares"]
+
+    # Jank ass helper function which basically helps me fuck around with the data without having to
+    # put the data in a stanard form, instead store that logic in here, This is bad. I should instead be
+    # re-shaping the data and putting that in a database in standard form, instead we have this
+    def _convert_to_ohlcv(self, data) -> ohlcv.ohlcv:
+        # This function should convert the entry to an ohlcv object, depending on the stream type
+        if self.stream_type == "pandas_csv":
+            entry_dict = data.to_dict()  # Convert Series to dict
+            new_dict = {}
+
+            # the magic strings that will be grabbing the data
+            new_dict["timestamp"] = entry_dict.get("Date", None)
+            new_dict["open"] = entry_dict.get("Open", None) 
+            new_dict["high"] = entry_dict.get("High", None)
+            new_dict["low"] = entry_dict.get("Low", None)
+            new_dict["close"] = entry_dict.get("Close", None)
+            new_dict["volume"] = entry_dict.get("Volume", None)
+
+            if None in new_dict.values():
+                raise ValueError("Missing OHLCV data in entry: {}".format(entry_dict))
+            
+            return ohlcv.ohlcv(new_dict)
+        elif self.stream_type == "json":
+            return ohlcv.ohlcv(data)
         else:
-            return json.loads(s)
+            raise ValueError("Unsupported stream type")
 
-
-    def _read_next_array_item(self):
-        fh = self._fh
-        buf = []
-        in_string = False
-        escape = False
-        depth = None  # None = not seen container yet, 0 = primitive
-        started = False
-
-        while True:
-            c = fh.read(1)
-            if not c:
-                # EOF
-                if not buf:
-                    self._eof = True
-                    return None
-                break
-
-            if not started:
-                if c.isspace() or c == ',':
-                    continue
-                if c == ']':
-                    self._eof = True
-                    return None
-                started = True
-                buf.append(c)
-                if c == '"':
-                    in_string = True
-                    depth = 0
-                elif c == '{' or c == '[':
-                    depth = 1
-                else:
-                    depth = 0
-                continue
-
-            buf.append(c)
-
-            if in_string:
-                if escape:
-                    escape = False
-                elif c == '\\':
-                    escape = True
-                elif c == '"':
-                    in_string = False
-                continue
-
-            # not in string
-            if c == '"':
-                in_string = True
-            elif c == '{' or c == '[':
-                if depth is None:
-                    depth = 1
-                else:
-                    depth += 1
-            elif c == '}' or c == ']':
-                if depth is None:
-                    depth = 0
-                elif depth > 0:
-                    depth -= 1
-                # if we've closed the top-level container and depth is 0, item done
-                if depth == 0:
-                    # consume any whitespace after the value, and optionally a comma or closing bracket
-                    # but we already consumed the closing brace/bracket
-                    break
-            elif depth == 0 and (c == ',' or c == ']'):
-                # primitive ended; remove delimiter from buffer
-                buf.pop()
-                if c == ']':
-                    self._eof = True
-                break
-
-        s = ''.join(buf).strip()
-        if not s:
-            return None
-        return self._parse_json(s)
-
-    def load_chunk(self):
-        self._open_if_needed()
-        if self._eof:
-            return []
-
-        items = []
-        if self._mode == 'ndjson':
-            while len(items) < self.chunkSize:
-                line = self._fh.readline()
-                if not line:
-                    self._eof = True
-                    break
-                line = line.strip()
-                if not line:
-                    continue
-                items.append(self._parse_json(line))
-        else:  # array mode
-            while len(items) < self.chunkSize:
-                it = self._read_next_array_item()
-                if it is None:
-                    break
-                items.append(it)
-            # do not advance `current_step` here; it should reflect how many items
-            # have been yielded by `step()` (global position). Reset chunk position.
-            self._chunk_pos = 0
-            self.data = items
-        return items
+    #############################################################
+    #                Cash and Equity management                 #
+    #############################################################
 
     def add_cash(self, amount: float):
         if amount <= 0:
@@ -251,7 +172,6 @@ class stock_simulator:
         self.order_history.append(action)   
         return amount
 
-    #buy and sell all lol
     def buy_all(self):
         self.shares += self.cash/self.current_ohlcv.close  # convert cash to shares at current price
         self.cash = 0
@@ -313,29 +233,10 @@ class stock_simulator:
             self.order_history.append(action)
             
     
-    #ammount in terms of cash
-    def _sell_shares_from_active_orders(self, amount: float):
-        total_sold = 0.0
-        shares_to_sell = amount / self.current_ohlcv.close
 
-        if shares_to_sell > self.shares:
-            raise ValueError("Insufficient shares to sell")
-
-        for order in self.active_orders:
-            if shares_to_sell <= 0:
-                break
-            if order["shares"] <= shares_to_sell:
-                total_sold += order["shares"] * self.current_ohlcv.close
-                shares_to_sell -= order["shares"]
-                self.active_orders.remove(order)
-            else:
-                total_sold += shares_to_sell * self.current_ohlcv.close
-                order["shares"] -= shares_to_sell
-                shares_to_sell = 0
-
-        self.shares -= shares_to_sell
-        self.cash += total_sold
-
+    #############################################################
+    #                       Get Functions                       #
+    #############################################################
 
 
     #Idk if this is wrong, but total gains is equal to the difference
@@ -357,37 +258,6 @@ class stock_simulator:
     def get_portfolio_value(self) -> float:
         return {"cash": self.get_cash(), "equity": self.get_equity()}
 
-    def step(self) -> ohlcv.ohlcv : 
-        # Return the next item (as a single-element list for compatibility)
-        # Load a new chunk when current chunk is exhausted.
-
-        self._calculate_equity_growth()
-
-        if self._eof and (not self.data or self._chunk_pos >= len(self.data)):
-            return None
-
-        if not self.data or self._chunk_pos >= len(self.data):
-            items = self.load_chunk()
-            if not items:
-                return None
-
-        # return next record
-        self.current_ohlcv = ohlcv.ohlcv(self.data[self._chunk_pos])
-        self._chunk_pos += 1
-        self.current_step += 1
-
-        # if this chunk is now exhausted, mark end-of-chunk for caller
-        if self._chunk_pos >= len(self.data):
-            self._eoc = True
-
-        return self.current_ohlcv
-
-    #TODO: calling this every step is slow
-    def _calculate_equity_growth(self):
-        self.equity_growth = 0.0
-
-        for order in self.active_orders:
-            self.equity_growth += (self.current_ohlcv.close - order["price"]) * order["shares"]
 
     def get_returns(self) -> float:
         return self.get_equity() + self.get_cash() - self.agregate_added_cash
@@ -400,3 +270,30 @@ class stock_simulator:
     def get_raw_cash_investment(self) -> float:
         return self.agregate_added_cash
     
+
+
+
+    #############################################################
+    #                       Step Functions                      #
+    #############################################################
+
+
+    def step(self) -> ohlcv.ohlcv:
+        self._calculate_equity_growth()
+        entry = self._get_next_entry()
+
+        # Handle pandas DataFrame and other types
+        if entry is None:
+            return None
+        if isinstance(entry, pd.DataFrame):
+            if entry.empty:
+                return None
+        elif hasattr(entry, 'empty'):
+            if entry.empty:
+                return None
+        elif isinstance(entry, (list, dict)):
+            if not entry:
+                return None
+        self.current_ohlcv = self._convert_to_ohlcv(entry)
+        self.current_step += 1
+        return self.current_ohlcv
