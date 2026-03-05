@@ -23,6 +23,23 @@ class Market:
 
         self.stock_prices = {}
 
+    #############################################################
+    #                  auto run functions                       #
+    #############################################################
+
+    def run(self, steps=-1):
+        if steps == -1:
+            #Run all steps until data runs out
+            pass
+
+        for _ in range(steps):
+            self.step()
+
+
+    def stop_signal(self):
+        # we're all out of data or something really bad happened
+        return False
+
 
 
     #############################################################
@@ -39,7 +56,7 @@ class Market:
     def query_stock_history(self, symbol):
         pass
     
-        
+
 
     #############################################################
     #                  Facade methods for sim                   #

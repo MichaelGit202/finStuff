@@ -7,7 +7,12 @@
 ----
  So basically what im dealing with is the fact that all the data I find is in slightly different formats, so live csv's differ form json and none of them are standardize. This fucking sucks since I want to do the KDB database and I dont know Q yet, and I dont want to go through the headache of making a fucking sql database. So I dont have a central place to reformat and store to like a real DBA. Honestly I just need like a little bit of data to fuck around with algo's while I learn Q in the mean time, THEN FINALLY, I can make this library not SUCK ASS with the data import. It also sucks that I just spent a bunch of time implementing csv reading just for it to suck.
 
->3/4/26 In market and sim i have it setup weird where you have to add cash to the sim before buying, change?
+>3/4/26 In market and sim i have it setup weird where you have to add cash to the sim before buying, change? NAH
+
+> I gotta figure out how im going to fit strategies into this, Its confusing how im gong to do that, I could make them an object i pass into the market object, which then kinda defeats the point of the jupiter notebook, but I could also have them be both optional where you do it in a NB but you gotta have a for loop but also have a way to pass in a strategy and have that be automated. I like that idea
+
+
+
 
 ### saved prompts
 
