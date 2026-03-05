@@ -1,23 +1,86 @@
-### Object to hold all tickers apart of a dataset
+import finlib.sim as sim
 
 
-class stock_market:
-    def __init__(self, ohlcv_list: list, initial_cash: float = 10000):
-        self.ohlcv_list = ohlcv_list
-        self.current_index = 0
-        self._eof = False
-        self.current_ohlcv = None
+# I think this is a command pattern? Basically this object holds a bunch of tickers and orcestrates a bunch of different sims
+# The idea being mabey im running 2 different strategies on 2 differnt stocks or each on a stock, mabey later change the 
+# Resolution, so one sim is running at daily and the other hourly, but all orcestrated the same
+class Market:
+    def __init__(self, initial_cash: float = 10000, symbols = []):
+        # probably eventually have a date / time / seconds attribute to keep track of time and sync data
+        self.market_step = 0
+        self.symbols = symbols
+        self.stocks = {}
+        self.cash = initial_cash
+        self.equity = 0.0
+
+        # TODO Fix this
+        for symbol in symbols:
+            self.stocks[symbol] = sim.stock_simulator(f"./data/stock_details_5_years_{symbol}.json", stream_type="json", chunk_size=100, initial_money=0.0, symbol=symbol)
+
+        # TODO: fix this    
+        for stock in self.stocks:
+            self.stocks[stock].step() # step once to get the first price for each stock
+
+        self.stock_prices = {}
+
+
+
+    #############################################################
+    #                  Query Functions                          #
+    #############################################################
+
+    def get_current_price(self, symbol):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        return self.stocks[symbol].current_ohlcv.close
+    
+
+    # function for getting a stocks history, means more when I get db setup and better datastream functions
+    def query_stock_history(self, symbol):
+        pass
+    
         
 
+    #############################################################
+    #                  Facade methods for sim                   #
+    #############################################################
 
     def step(self):
-        if self._eof:
-            return None  # no more data to step through
+        # FYI returns each price of each step, can store this for visuals
+        for stock in self.stocks:
+            self.stock_prices[stock] = {"OHLCV": self.stocks[stock].current_ohlcv, "equity_growth": self.stocks[stock].equity_growth, "cash": self.stocks[stock].cash, "shares": self.stocks[stock].shares}
+            
+        self.market_step += 1
+        return self.stock_prices
 
-        self.current_ohlcv = self.ohlcv_list[self.current_index]
-        self.current_index += 1
 
-        if self.current_index >= len(self.ohlcv_list):
-            self._eof = True
+    def add_cash(self, symbol, amount):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].add_cash(amount)
+        self.cash -= amount
+    
+    def remove_cash(self, symbol, amount):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].remove_cash(amount)
+        self.cash += amount
 
-        return self.current_ohlcv
+    def buy_stock(self, symbol, amount):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].buy(amount)
+
+    def sell_shares(self, symbol, amount):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].sell_shares(amount)
+        
+
+    def sell_equity(self, symbol, amount):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].sell_equity(amount)
+
+     
+    

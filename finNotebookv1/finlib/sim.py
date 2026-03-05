@@ -29,7 +29,9 @@ class stock_simulator:
 
 
     # init that assumes the data is in one file
-    def __init__(self, file_path: str, stream_type, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0 ):
+    def __init__(self, file_path: str, stream_type, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0, symbol: str = "no_symbol"):
+        
+        
         self.current_step = start_step
         self.cash = initial_money
         self.agregate_added_cash = initial_money
@@ -38,11 +40,15 @@ class stock_simulator:
         self.order_history = []
         self.active_orders = []
         self.equity_growth = 0.0
+        self.percent_growth = 0.0
+
+
         self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size)
         self._eof = False
         self._current_chunk = []
         self._chunk_pos = 0
         self.stream_type = stream_type
+        self.symbol = symbol
 
     def __del__(self):
         try:
@@ -119,9 +125,14 @@ class stock_simulator:
     #TODO: calling this every step is slow
     def _calculate_equity_growth(self):
         self.equity_growth = 0.0
-
+        self.percent_growth = 0.0
         for order in self.active_orders:
             self.equity_growth += (self.current_ohlcv.close - order["price"]) * order["shares"]
+
+        if self.agregate_added_cash > 0:
+            self.percent_growth = (self.equity_growth / self.agregate_added_cash) * 100
+
+
 
     # Jank ass helper function which basically helps me fuck around with the data without having to
     # put the data in a stanard form, instead store that logic in here, This is bad. I should instead be
@@ -148,6 +159,8 @@ class stock_simulator:
             return ohlcv.ohlcv(data)
         else:
             raise ValueError("Unsupported stream type")
+
+
 
     #############################################################
     #                Cash and Equity management                 #
@@ -277,7 +290,7 @@ class stock_simulator:
     #                       Step Functions                      #
     #############################################################
 
-
+  
     def step(self) -> ohlcv.ohlcv:
         self._calculate_equity_growth()
         entry = self._get_next_entry()
@@ -288,7 +301,7 @@ class stock_simulator:
         if isinstance(entry, pd.DataFrame):
             if entry.empty:
                 return None
-        elif hasattr(entry, 'empty'):
+        elif hasattr(entry, 'empty'):    # we return none once the data runs out
             if entry.empty:
                 return None
         elif isinstance(entry, (list, dict)):

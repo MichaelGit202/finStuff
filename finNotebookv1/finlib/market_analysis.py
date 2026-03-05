@@ -34,7 +34,6 @@ def drawdown(returns):
 
 
 def sharpe_ratio(Ra, Rb, SIGa):
-    """Calculate the Sharpe Ratio given the return of the asset, the risk-free rate, and the standard deviation of the asset's returns."""
     """ reward-to-variability-ratio Ra: return of asset, Rb: Risk-free rate, SIGa: standard deviation of asset's returns """
     if SIGa == 0:
         return np.inf  # Avoid division by zero; infinite Sharpe Ratio if no volatility
