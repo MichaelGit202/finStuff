@@ -42,9 +42,11 @@ last L1
 
 /How to tell when its a simple list
 "How to tell when its a simple list:"
+
 (100i; 200i; 300i) / when your shit outputs like below
 /100 200 300 instead of (100;200;300)
 "non simple: "
+
 (100; 200; 300; 1.1)
 
 / you can also just assign it
@@ -52,13 +54,50 @@ last L1
 L1 : 100 200 300i
 L1
 
-"100 200 300~(100; 200 ; 300), this tests for identity"
+"100 200 300~(100; 200 ; 300), this (~) tests for identity, called the match op"
+
+
+/ The guide then goes through how to make a type of list of every list
+"char list"
+("s"; "t"; "r"; "i"; "n"; "g")
 
 
 
+/"equals vs match"
+/"string"="text" / this throws a `length error because = is an atomic operator, item to item comparisons
+                / compares s to t and t to e and then runs out
+
+"string"="string"
+"string"="btring" / returns an array of 0 1 1 1 1 1, one for each char
+"string"~"text"
+
+L:()
+L
+.Q.s1 L /force it to display the empty list
 
 
 
+/ Singletons, a list with one entry, cant do (42) because interpreter
+/ thinks its a math operation  (42) = 42
+/ so we use the enlist function which boxes its argument into a list
+"enlist operator"
+enlist 42
+/prints out as ,42
+/comma denotes its a list
+
+/ "a" = atomic char
+
+enlist "a"
+/ this is a string, ie list of chars
+
+enlist (10 20 30; `a`b`c)
 
 
+L2[0] / indexing into a list, zero based
+L2[1] 
+
+L2[1]: 99
+L2[1] 
+
+L2[] / print out whole list
 \\
