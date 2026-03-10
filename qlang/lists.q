@@ -100,4 +100,25 @@ L2[1]: 99
 L2[1] 
 
 L2[] / print out whole list
+
+
+/ indexing works how you would expect, but out of bounds erros are not thrown instead you get a typed null
+L2[5]
+/ 0N
+
+
+/ double colon creates an empty entry in the list
+L[::]
+/ this forces a list to be general instead of simple
+ 
+L:(::; 1 ; 2 ; 3)
+type L
+/outputs a 0h 
+.Q.s1 L[0]
+/ outputs a ::
+
+
+
+
+
 \\
