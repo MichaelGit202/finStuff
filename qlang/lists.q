@@ -118,6 +118,158 @@ type L
 / outputs a ::
 
 
+"any valid q expression can be in a list construction"
+a:42
+b:43
+(a;b)
+
+l1: 1 2 3 
+l2: 40, 50
+(l1; l2)
+(count l1; sum l2)
+
+
+
+/ combining lists, just use a comma
+1 2 3, 4 5 / simple list
+1 2 3, 4.4 5.5 / general list
+
+
+/ ensure it becomes a list, also how to enlist an atom
+a: 42
+a,(1, 2, 3)
+(1,2,3), a
+
+
+/ merging with ^ has to be the same length tho
+/ Overwrites the nulls
+l1: 10 0N 30
+l2: 100 200 0N
+
+"overwrites the nulls"
+l1^l2
+
+
+/ lists as maps
+/ the guide goons over how 0 maps to entry 0 
+
+/nesting, lists within lists
+L: (1;2;3; (4;5;6); (7;8;9))
+count L
+/outputs 5
+
+/ then it explains how 2d lists work, like its how you'd expect
+
+m:((11; 12; 13; 14); (21; 22; 23; 24); (31; 32; 33; 34))
+m[1][0]
+
+L:(1; (100; 200; (1000; 2000; 3000; 4000)))
+
+L[1][2][0]
+/or
+L[1;2;0]
+
+
+/getting multiple entries
+
+
+
+/l: 10 20 30 40 50
+/l[0 2 4]
+/10 30 50
+
+/duplicate and reorder them shits too
+l: 0 1 2 3 4 5 6 7 8 9
+l[8 7 6 3 1 2 2 2 8 1 0 0 0 0 0 0 0 0 0 22]
+
+
+
+"Intro to reshaping lists"
+/It is possible to create a (possibly ragged) array of a given number 
+/ of rows or columns from a flat list using the reshape operator # by specifying 0N 
+/ (missing data) for the number of rows or columns in the left operand.
+
+2 0N#til 10
+/ this means make 2 rows from 0 to 9 
+
+/ or you could make an uneven "ragged list" 
+0N 3#til 10
+/ break the numbers 0-9 into chunks of exactly 3 columns, no matter the rows
+
+-3 #til 10
+
+/ why this is powerful
+/Imagine you have a flat list of 1,000,000 trade prices and you want to view them as 
+/"1-minute buckets" where each minute has 100 trades. Instead of a loop, you just do:
+/all you gotta do 0N 100#prices
+
+
+
+"some random stuff about indexing into lists with lists"
+01101011b[0 2 4]
+"beeblebrox"[0 7 8]
+
+
+/indicies can live in a variable
+l: 0 1 2 3 4 5 6 7 8 9
+
+I : 0 2
+l[I]
+
+/ we can index with nested incidces too i guess
+l[(0 1 ; 2 3)]
+
+
+L:100 200 300 400
+L[(0 1; 2 3)]
+
+
+/ man look at this, mass index assignment
+L[1 2 3]:2000 3000 4000
+/ this is because of the left of right shit, its equivelent to
+L[1] : 2000
+L[2] : 3000
+L[3] : 4000
+
+
+
+/ these goobers thought that brackets were too verbose so you can just call them "juxtaposed"
+L : 100 200 300 400
+L 0
+
+L 2 1
+
+I : 2 1
+L I
+
+L ::
+
+
+"Find operator"
+/ overloads the binary ? that returns the index of the first occurence of the right operand
+1001 1002 1003 ? 1002
+/ 1
+
+L1 : (2,4,6,8)
+a: 6
+b: -10
+
+L1 ? a
+L1 ? b
+/ returns 4 like count j
+
+/MORE
+1001 1002 1003?1003 1001
+
+m:(1 2 3 4; 100 200 300 400; 1000 2000 3000 4000)
+m[1;]
+
+
+m[1;]~m[1]
+
+
+
+
 
 
 
