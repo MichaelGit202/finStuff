@@ -147,6 +147,6 @@ directFee: calcFee[`NASDAQ; `Equity; ]
 directFee[5000]         / Returns 85.0
 
 
-
+// left off at 6.5.2 List of Indices, Keys and Arguments¶
 
 \\
