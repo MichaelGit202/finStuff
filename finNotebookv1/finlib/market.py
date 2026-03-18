@@ -13,6 +13,11 @@ class Market:
         self.cash = initial_cash
         self.equity = 0.0
 
+        #for how many rows we want to save to csv/db at a time
+        _SAVE_CHUNK_SIZE = 1000
+        chunk = []
+        self._chunk_format() #TODO haha
+
         # TODO Fix this
         for symbol in symbols:
             self.stocks[symbol] = sim.stock_simulator(f"./data/stock_details_5_years_{symbol}.json", stream_type="json", chunk_size=100, initial_money=0.0, symbol=symbol)
@@ -20,8 +25,6 @@ class Market:
         # TODO: fix this    
         for stock in self.stocks:
             self.stocks[stock].step() # step once to get the first price for each stock
-
-        self.stock_prices = {}
 
 
     #############################################################
@@ -58,6 +61,35 @@ class Market:
         pass
     
 
+    #############################################################
+    #                  store performance data                   #
+    #############################################################
+    
+    def _chunk_format(self):
+        for stock in self.stocks + "full_port":
+           self.chunk[stock] = []
+
+
+    # called every timestep store the current price, equity growth, cash, shares for each stock
+    def _track_performance(self):
+        entry = {}
+        portfolio_value = self.cash
+
+        for stock in self.stocks:
+            #some of this data is not neccisary to store
+            entry[stock].appemd({"timestep": self.market_step, "OHLCV": self.stocks[stock].current_ohlcv, "equity_growth": self.stocks[stock].equity_growth, "cash": self.stocks[stock].cash, "shares": self.stocks[stock].shares, "portfolio_value": self.stocks[stock].get_portfolio_value()})
+            portfolio_value += self.stocks[stock].get_portfolio_value()
+            self.chunk.append(entry)
+        
+        
+        if len(self.chunk) >= self._SAVE_CHUNK_SIZE:
+            self._save_to_csv()
+            self._chunk_format()
+    
+
+    def _save_to_csv(self):
+        for stock in self.stocks:
+            pass
 
     #############################################################
     #                  Facade methods for sim                   #

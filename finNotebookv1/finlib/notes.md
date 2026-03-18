@@ -30,6 +30,11 @@
 - At some point convert shid over to polars
 
 
+>3/16/26
+goint to try to get portfolio tracking with timescale db instead, but im going to have to grab my own docker file.
+switching everyting over to polars is going to be a giant pain in the ass or not, depends?
+everything is basically waiting for kdb 
+
 ### saved prompts
 
 >Im saving this when I goahead and implement visuals

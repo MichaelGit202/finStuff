@@ -267,10 +267,36 @@ m[1;]
 
 m[1;]~m[1]
 
+"3.10 Elliding indices for deeply nested lists"
+"TODO I am not sure what is going on"
+L:((1 2 3;4 5 6 7);(`a`b`c`d;`z`y`x`;`0`1`2);("now";"is";"the"))
+
+/Retrieve all items at index 1 of each top level list
+L[;1;]
+/(4 5 6 7;`z`y`x`;"is")
+
+/Retrieve the items at index 2 for each list at the second level
+L[;;2]
+/(3 6;`c`x`2;"w e") ,<- index 2 in "is" has nothing there so its null so it adds nothing
+ 
 
 
+"Rectangular lists"
+
+L:(1 2 3; 10 20 30; 100 200 300)
+/transposition
+L
+M: flip L
 
 
+"vectors do net need to be numeric"
+v1:1 2 3 / vector of integers
+v2:98.60 99.72 100.34 101.93 / float vector
+v3:`so`long`and`thanks`for`all`the`fish / symbol vector
+
+
+m:(1 2; 10 20; 100 200; 1000 2000)
+m 0 2 / retrives first and third row
 
 
 \\
