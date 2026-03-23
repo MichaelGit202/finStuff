@@ -147,6 +147,160 @@ directFee: calcFee[`NASDAQ; `Equity; ]
 directFee[5000]         / Returns 85.0
 
 
-// left off at 6.5.2 List of Indices, Keys and Arguments¶
+"List of Indices, Keys and Arguments"
+d:`a`b`c!10 20 30
+ks:`a`c
+d ks
+/ you can index them with lists like lists
+
+
+"indexing at depth"
+d:`a`b!(1 2 3; 100 200)
+d[`a;1]
+/ works just about how id expect
+
+
+
+"when you access an index that does not exist it reutnrs null like lists"
+
+"you can also apply functions like neg"
+
+(enlist 10)?10
+
+
+"called atomic functions, seems useful"
+f:{(x*x)+(2*x)-1}
+/like a list builder
+f til 10
+
+"binary functions, as in it comes with 2 arguments"
+pyth:{sqrt (x*x)+y*y}
+pyth[1;1]
+
+/this applies 1 to all of the y's
+pyth[1; 1 2 3]
+
+/nvm this is like one to one 1->1 2->2 3->3
+pyth[1 2 3; 1 2 3]
+
+"iterators"
+count 10 20 30 /3
+count (10 20 30; 40 50) /2 
+count each (10 20 30; 40 50) / 3,2
+each[count] (10 20 30; 40 50) / 3,2
+"iterators on nested lists"
+[each[count]] ((1 2 3; 3 4); (100 200; 300 400 500))
+(count each) each ((1 2 3; 3 4); (100 200; 300 400 500)) /bruh you have to DRILL
+each[each[count]] ((1 2 3; 3 4); (100 200; 300 400 500)) / explicit version of the above
+
+
+reverse "live"
+reverse each ("life"; "the"; "universe"; "and"; "everything")
+
+/ i dont know the point of this
+L:enlist 1001 1002 1004 1003
+K:enlist each 1001 1002 1004 1003
+L[0] / puts 1001 1002 1004 1003 in one entry of a list
+K[0] / separate indexes
+
+/flipping a vector to an nx1 matrix
+flip enlist 1001 1002 1004 1003
+
+" ' acts as an each with lists"
+("abc"; "uv"),'("de"; "xyz")
+1,'10 20 30
+
+/it just kinda maps things together, like a zip in python
+
+L1:(enlist `a; `b)
+L2:1 2
+L1,'L2
+
+/reliable way to make a list of pairs from a pair of lists
+flip (L1; L2)
+
+t1:([] c1:1 2 3)
+t2:([] c2:`a`b`c)
+
+t1,'t2
+
+"right join operator"
+/appending a string to each string in a list
+/the enlist is make that one char a string    
+("abc"; "de"; enlist "f") ,\: ">"
+
+"</" ,/: ("abc"; "de"; enlist "f")
+
+
+"cross product"
+cp:1 2 3,/:\:10 20
+/with the right and left join you get close
+/ but we need the raze
+cp
+cp:raze cp
+cp
+
+/or just fuckin
+1 2 3 cross 10 20
+
+/transposed cross product
+raze 1 2 3,\:/:10 20
+
+
+"OVER OPERATOR"
+/ the over iterator which is the forward slash
+0 +/ 1 2 3 4 5
+/not specifying the starting value makes it more qthonic
+(+/) 1 2 3 4 5 6 7 8 9 10
+
+"accumulator + printf example"
+/accumulator example, the 0N! prints out each step 
+addi:{0N!(x;y); x+y}
+0 addi/ 1 2 3 4 5
+
+
+"max-min"
+(|/) 7 8 4 3 10 2 1 9 5 6 / maximum 
+(&/) 7 8 4 3 10 2 1 9 5 6 / minimum
+
+"removing top level of nesting"
+(,/)((1 2 3; 4 5); (100 200; 300 400 500))
+raze ((1 2 3; 4 5); (100 200; 300 400 500)) /same thing
+
+f:{2*x+y}
+100 f/ 1 2 3 4 5 6 7 8 9 10
+(f/) 1 2 3 4 5 6 7 8 9 10
+
+"computing n-th fibonacci number with over"
+fib:{x,sum -2#x}
+fib/[10; 1 1]
+
+"derivative approximation"
+/yea i kinda get it but my mind is too blown rn
+/ TODO come back
+f:{-2+x*x}
+secant:{[f;x;e] (f[x+e]-f x-e)%2*e}
+{x-f[x]%secant[f; x; 1e-6]}/[1.5]
+
+
+"infinite loop with newton forward ie newton-raphson"
+newtcycle:{[xn] xn-((xn*xn*xn)+(-2*xn)+2)%-2+3*xn*xn}
+newtcycle/[0.0]
+/q detects cycles by matching previous recursive results and stops itself
+/ before if fucks up
+
+
+"while loop equivalent"
+fib:{x,sum -2#x}
+fib/[{1000>last x}; 1 1]
+    /our while condition, so this says go till the last element of x is greater than 1000 
+    / x is our list that keeps growing as we calculate the next fib number, so we keep going until the last one is greater than 1000
+
+"SCAN OPERATOR "
+/ is exactly the same as over except it reurns all intermediate results
+
+10 fib\ 1 1
+100 f\1 2 3 4 5 6 7 8 9 10
+
 
 \\
