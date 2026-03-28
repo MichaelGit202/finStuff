@@ -303,4 +303,88 @@ fib/[{1000>last x}; 1 1]
 100 f\1 2 3 4 5 6 7 8 9 10
 
 
+"each prior"
+/ a declarative way to perform binary operations on each item in a lit with its predecesor
+
+
+/ex subtract every number from 100 like x - 100
+
+100 -': 100 99 101 102 101
+/ produces a list of what the calk deltas
+
+"First item problem"
+/ when you are trying to calculate differences between pries, you are always looking at a pair
+/ but when you start at the first entry there is no price before it
+/ item on left of -': acts as the seed unit
+/but this is also valid but first Op is fucked up
+(-':)100 99 101 102 101
+/ Result: 100 -1 2 1
+
+/ we see this in other q functions
+p: 100 110 121
+deltas p
+ratios p
+
+
+/however this lets us do shit like this, where the predecasory is implicityly choses as the identity for binary functions
+"sums deltas"
+sums deltas 100 99 101 102 101
+
+"deltas sums"
+deltas sums  100 99 101 102 101
+
+/these just spit out the list
+/ Weird shit
+/ they reccomend making your own if this dont work for you
+
+"hand made"
+deltas0:{first[x] -': x}
+
+deltas0 100 99 101 102 101
+
+sums deltas0 100 99 101 102 101
+
+"identical check"
+(~':) 1 1 1 2 2 3 4 5 5 5 6 6
+
+not (~':)  1 1 1 2 2 3 4 5 5 5 6 6
+
+differ 1 1 1 2 2 3 4 5 5 5 6 6
+
+"where yields indices"
+L:1 1 1 2 2 3 4 5 5 5 6 6
+where differ L
+
+"cut, grabs the indicies"
+(where differ L) cut L
+/ yiels a list of list of matching indicies
+
+runs:(where differ L) cut L / store runs
+ct:count each runs / store count of each run
+runs where ct=max ct / find the runs of maximum length
+
+/^english: make a parallel array with counts find the max from that and get the indicies and plug those into the array runs
+
+/ The most Qthonic way is in one line
+runs where ct=max ct:count each runs:(where differ L) cut L
+
+"finding runs of increasing or decreasing values"
+L:9 8 7 11 10 12 13
+(where -0W>':L) cut L
+(where 0W<':L) cut L
+
+"Then the book goons about how everthing is a function and it all works the same"
+/like how
+1 + 2
+/is just this under the hood
++[1;2]
+/this is called general application, its the unified thoery of q
+/ Functions, Lists, and Dictionaries are all the same: they are things you "apply" to arguments
+/ brackets and spaces are different ways to trigger the application engine, spaces are invisible operators
+
+data:10.1 10.2 10.1 10.3
+weights:100 200 150 300
+weighted_avg:(sum data*weights)%sum weights
+
+
 \\
