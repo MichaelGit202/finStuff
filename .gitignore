@@ -3,3 +3,8 @@
 
 # Ignore Windows metadata files
 *.Identifier
+
+
+# Ignore the databases directory
+/databases/
+
