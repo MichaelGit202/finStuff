@@ -1,10 +1,13 @@
 import finlib.data_readers.json_reader as json_reader
 from finlib.data_readers.pandas_csv import pandas_csv_reader
+from finlib.data_readers.kdb import kdb_link
 from enum import Enum
+
 
 class data_streams(Enum):
     JSON = "json"
     PANDAS_CSV = "pandas_csv"
+    KDB = "kdb"
 
 
 
@@ -12,10 +15,11 @@ class data_streams(Enum):
 class data_stream:
 
     # TODO Abstract the args to just a dict to be abstracted in get_reader
-    def __init__(self, file_path, stream_type, chunk_size=100):
+    def __init__(self, file_path, stream_type, chunk_size=100, params=None):
         self.file_path = file_path
         self.chunk_size = chunk_size
         self.stream_type = stream_type
+        self.params = params
         self.reader = self.get_reader()
 
     def get_reader(self):
@@ -23,6 +27,8 @@ class data_stream:
             return json_reader.json_reader(self.file_path, self.chunk_size)
         if self.stream_type == data_streams.PANDAS_CSV.value:
             return pandas_csv_reader(self.file_path, self.chunk_size)
+        if self.stream_type == data_streams.KDB.value:
+            return kdb_link(self.file_path, self.chunk_size, self.params)
     
     def read_chunk(self):
         return self.reader.read_chunk()

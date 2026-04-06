@@ -5,13 +5,14 @@ import finlib.sim as sim
 # The idea being mabey im running 2 different strategies on 2 differnt stocks or each on a stock, mabey later change the 
 # Resolution, so one sim is running at daily and the other hourly, but all orcestrated the same
 class Market:
-    def __init__(self, initial_cash: float = 10000, symbols = []):
+    def __init__(self, initial_cash: float = 10000, stream_type="kdb", symbols = [], params=None):
         # probably eventually have a date / time / seconds attribute to keep track of time and sync data
         self.market_step = 0
         self.symbols = symbols
         self.stocks = {}
         self.cash = initial_cash
         self.equity = 0.0
+        self.stock_prices = {}
 
         #for how many rows we want to save to csv/db at a time
         _SAVE_CHUNK_SIZE = 1000
@@ -20,7 +21,7 @@ class Market:
 
         # TODO Fix this
         for symbol in symbols:
-            self.stocks[symbol] = sim.stock_simulator(f"./data/stock_details_5_years_{symbol}.json", stream_type="json", chunk_size=100, initial_money=0.0, symbol=symbol)
+            self.stocks[symbol] = sim.stock_simulator(f"./data/stock_details_5_years_{symbol}.json", stream_type=stream_type, chunk_size=100, initial_money=0.0, symbol=symbol, params=params)
 
         # TODO: fix this    
         for stock in self.stocks:
@@ -65,9 +66,11 @@ class Market:
     #                  store performance data                   #
     #############################################################
     
+    # I dont remember this
     def _chunk_format(self):
-        for stock in self.stocks + "full_port":
-           self.chunk[stock] = []
+        pass
+        #for stock in self.stocks + "full_port":
+        #   self.chunk[stock] = []
 
 
     # called every timestep store the current price, equity growth, cash, shares for each stock
@@ -99,7 +102,8 @@ class Market:
         # FYI returns each price of each step, can store this for visuals
         for stock in self.stocks:
             self.stock_prices[stock] = {"OHLCV": self.stocks[stock].current_ohlcv, "equity_growth": self.stocks[stock].equity_growth, "cash": self.stocks[stock].cash, "shares": self.stocks[stock].shares}
-            
+            self.stocks[stock].step()
+
         self.market_step += 1
         return self.stock_prices
 
@@ -132,6 +136,26 @@ class Market:
             raise ValueError(f"Symbol {symbol} not found in market.")
         self.stocks[symbol].sell_equity(amount)
 
-     
+    def sell_all(self, symbol):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].sell_all()
+
+    def sell_all_equity(self, symbol):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].sell_all_equity()
     
+    def buy_all(self, symbol):
+        if symbol not in self.stocks:
+            raise ValueError(f"Symbol {symbol} not found in market.")
+        self.stocks[symbol].buy_all()
     
+
+    def get_value_portfolio(self):
+        total_value = self.cash
+        for stock in self.stocks:
+            ob = self.stocks[stock].get_portfolio_value()
+            print(ob)
+            total_value += (ob["cash"] * ob["equity"]) 
+        return total_value

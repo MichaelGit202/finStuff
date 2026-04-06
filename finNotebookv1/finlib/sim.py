@@ -3,6 +3,7 @@ import finlib.ohlcv as ohlcv
 from enum import Enum
 import pandas as pd
 
+
 #general json data structure
 #time series data [
     # typical OHLCV data + time stamp
@@ -29,7 +30,7 @@ class stock_simulator:
 
 
     # init that assumes the data is in one file
-    def __init__(self, file_path: str, stream_type, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0, symbol: str = "no_symbol"):
+    def __init__(self, file_path: str, stream_type, start_step: int = 0, chunk_size: int = 1000, initial_money: float = 1000.0, symbol: str = "no_symbol", params=None):
         
         
         self.current_step = start_step
@@ -41,9 +42,12 @@ class stock_simulator:
         self.active_orders = []
         self.equity_growth = 0.0
         self.percent_growth = 0.0
-
-
-        self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size)
+        
+        # TODO stinks
+        if stream_type == "kdb":
+            self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size, params=params)
+        else:
+            self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size)
         self._eof = False
         self._current_chunk = []
         self._chunk_pos = 0
@@ -157,6 +161,23 @@ class stock_simulator:
             return ohlcv.ohlcv(new_dict)
         elif self.stream_type == "json":
             return ohlcv.ohlcv(data)
+        elif self.stream_type == "kdb":
+            # Assuming the kdb query returns a pandas DataFrame with the same structure as the CSV
+            entry_dict = data.to_dict()  # Convert Series to dict
+            new_dict = {}
+
+            # the magic strings that will be grabbing the data
+            new_dict["timestamp"] = entry_dict.get("Date", None)
+            new_dict["open"] = entry_dict.get("Open", None) 
+            new_dict["high"] = entry_dict.get("High", None)
+            new_dict["low"] = entry_dict.get("Low", None)
+            new_dict["close"] = entry_dict.get("Close", None)
+            new_dict["volume"] = entry_dict.get("Volume", None)
+
+            if None in new_dict.values():
+                raise ValueError("Missing OHLCV data in entry: {}".format(entry_dict))
+            
+            return ohlcv.ohlcv(new_dict)
         else:
             raise ValueError("Unsupported stream type")
 
