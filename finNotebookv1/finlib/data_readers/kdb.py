@@ -17,7 +17,7 @@ class kdb_link():
 
         # open connection
         try:                        
-            self.q = kx.SyncQConnection(host='localhost', port=5000) # hardcoded :p
+            self.q = kx.SyncQConnection(host='localhost', port=5000) # BUG hardcoded :p
         except Exception as e:
             print(f"Error connecting to kdb: {e}")
             raise e

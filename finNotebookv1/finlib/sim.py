@@ -42,7 +42,8 @@ class stock_simulator:
         self.active_orders = []
         self.equity_growth = 0.0
         self.percent_growth = 0.0
-        
+        self.time_stamp = None
+
         # TODO stinks
         if stream_type == "kdb":
             self.data_stream = data_stream.data_stream(file_path, stream_type, chunk_size, params=params)
@@ -149,6 +150,7 @@ class stock_simulator:
 
             # the magic strings that will be grabbing the data
             new_dict["timestamp"] = entry_dict.get("Date", None)
+            self.time_stamp = entry_dict.get("Date", None)
             new_dict["open"] = entry_dict.get("Open", None) 
             new_dict["high"] = entry_dict.get("High", None)
             new_dict["low"] = entry_dict.get("Low", None)
@@ -168,6 +170,7 @@ class stock_simulator:
 
             # the magic strings that will be grabbing the data
             new_dict["timestamp"] = entry_dict.get("Date", None)
+            self.time_stamp = entry_dict.get("Date", None)
             new_dict["open"] = entry_dict.get("Open", None) 
             new_dict["high"] = entry_dict.get("High", None)
             new_dict["low"] = entry_dict.get("Low", None)

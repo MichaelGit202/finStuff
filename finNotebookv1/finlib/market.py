@@ -156,6 +156,6 @@ class Market:
         total_value = self.cash
         for stock in self.stocks:
             ob = self.stocks[stock].get_portfolio_value()
-            print(ob)
-            total_value += (ob["cash"] * ob["equity"]) 
+            #print(ob)
+            total_value += (ob["cash"] + ob["equity"]) 
         return total_value
